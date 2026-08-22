@@ -2,16 +2,19 @@ import sys
 from loguru import logger
 
 from pipecat.audio.vad.silero import SileroVADAnalyzer
-from pipecat.frames.frames import EndFrame, Frame, InputAudioRawFrame, LLMContextFrame, OutputAudioRawFrame
+from pipecat.frames.frames import EndFrame, Frame, InputAudioRawFrame, LLMRunFrame, OutputAudioRawFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.aggregators.llm_context import LLMContext
-from pipecat.processors.aggregators.llm_response_universal import LLMContextAggregatorPair
+from pipecat.processors.aggregators.llm_response_universal import (
+    LLMContextAggregatorPair,
+    LLMUserAggregatorParams,
+)
 from pipecat.serializers.base_serializer import FrameSerializer
-from pipecat.services.cartesia.stt import CartesiaSTTService
 from pipecat.services.cartesia.tts import CartesiaTTSService
-from pipecat.services.mistral.llm import MistralLLMService
+from pipecat.services.groq.llm import GroqLLMService
+from pipecat.services.groq.stt import GroqSTTService
 from pipecat.transports.websocket.fastapi import (
     FastAPIWebsocketParams,
     FastAPIWebsocketTransport,
@@ -43,38 +46,40 @@ class RawAudioSerializer(FrameSerializer):
 
 async def run_bot(websocket_client):
     """
-    Runs the Pipecat real-time conversational voice pipeline for a connected WebSocket client.
+    Runs the Pipecat real-time conversational voice pipeline:
+    - STT: Groq Whisper Large v3 Turbo (Ultra-low latency, generous free tier)
+    - LLM: Groq openai/gpt-oss-20b (Ultra-fast LPU inference)
+    - TTS: Cartesia Sonic (Studio-grade human realism, ~90ms latency)
     """
-    # 1. Setup FastAPI WebSocket transport with RawAudioSerializer and Silero VAD
     transport = FastAPIWebsocketTransport(
         websocket=websocket_client,
         params=FastAPIWebsocketParams(
             audio_in_enabled=True,
             audio_out_enabled=True,
             add_wav_header=False,
-            vad_enabled=True,
-            vad_analyzer=SileroVADAnalyzer(),
-            vad_audio_passthrough=True,
             serializer=RawAudioSerializer(),
             audio_in_sample_rate=16000,
             audio_out_sample_rate=16000,
         ),
     )
 
-    # 2. Cartesia Live STT Service (16kHz)
-    stt = CartesiaSTTService(
-        api_key=config.CARTESIA_API_KEY,
-    )
-
-    # 3. Mistral LLM Service
-    llm = MistralLLMService(
-        api_key=config.MISTRAL_API_KEY,
-        settings=MistralLLMService.Settings(
-            model=config.MISTRAL_MODEL,
+    # 1. Groq Whisper STT Service
+    stt = GroqSTTService(
+        api_key=config.GROQ_API_KEY,
+        settings=GroqSTTService.Settings(
+            model=config.GROQ_STT_MODEL,
         ),
     )
 
-    # 4. Cartesia Sonic TTS Service (16kHz PCM output)
+    # 2. Groq LLM Service (Fast LPU inference)
+    llm = GroqLLMService(
+        api_key=config.GROQ_API_KEY,
+        settings=GroqLLMService.Settings(
+            model=config.GROQ_MODEL,
+        ),
+    )
+
+    # 3. Cartesia Sonic TTS Service (Studio-grade human voice)
     tts = CartesiaTTSService(
         api_key=config.CARTESIA_API_KEY,
         sample_rate=16000,
@@ -84,44 +89,59 @@ async def run_bot(websocket_client):
         ),
     )
 
-    # 5. Context & System Prompt
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are a friendly, witty, and concise real-time voice assistant. "
-                "Keep your responses short, conversational, and direct (1 to 2 sentences max). "
-                "Do not use markdown formatting, bullet points, or emojis."
-            ),
-        }
-    ]
-    context = LLMContext(messages)
-    context_aggregator = LLMContextAggregatorPair(context)
-
-    # 6. Build Pipecat Pipeline
-    pipeline = Pipeline(
+    # 4. Context & System Instruction
+    context = LLMContext(
         [
-            transport.input(),              # Raw mic PCM from client WebSocket
-            stt,                            # Cartesia Speech-To-Text
-            context_aggregator.user(),      # User context aggregator
-            llm,                            # Mistral LLM
-            tts,                            # Cartesia Sonic TTS
-            transport.output(),             # Synthesized audio to client WebSocket
-            context_aggregator.assistant(), # Assistant context aggregator
+            {
+                "role": "system",
+                "content": (
+                    "You are a friendly, witty, and concise real-time voice assistant. "
+                    "Your responses will be spoken aloud to the user using text-to-speech. "
+                    "Keep your responses short, conversational, and direct (1 to 2 sentences max). "
+                    "Do not use markdown formatting, bullet points, or emojis."
+                ),
+            }
         ]
     )
 
-    task = PipelineTask(pipeline, params=PipelineParams(allow_interruptions=True))
+    user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
+        context,
+        user_params=LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer()),
+    )
+
+    # 5. Build Pipeline
+    pipeline = Pipeline(
+        [
+            transport.input(),              # Mic audio stream from client
+            stt,                            # Groq Whisper STT
+            user_aggregator,                # User turn aggregator
+            llm,                            # Groq LLM
+            tts,                            # Cartesia Sonic TTS
+            transport.output(),             # Synthesized audio to client
+            assistant_aggregator,           # Assistant turn aggregator
+        ]
+    )
+
+    task = PipelineTask(
+        pipeline,
+        params=PipelineParams(
+            allow_interruptions=True,
+            enable_metrics=True,
+            enable_usage_metrics=True,
+        ),
+    )
 
     @transport.event_handler("on_client_connected")
     async def on_client_connected(transport, client):
-        logger.info("Client connected to Pipecat voice pipeline.")
-        # Trigger initial greeting
-        await task.queue_frames([LLMContextFrame(context)])
+        logger.info("Client connected to Groq + Cartesia voice pipeline.")
+        context.add_message(
+            {"role": "user", "content": "Please introduce yourself briefly in 1 friendly sentence."}
+        )
+        await task.queue_frames([LLMRunFrame()])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, client):
-        logger.info("Client disconnected from Pipecat.")
+        logger.info("Client disconnected from voice pipeline.")
         await task.queue_frames([EndFrame()])
 
     runner = PipelineRunner(handle_sigint=False)

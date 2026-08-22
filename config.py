@@ -5,21 +5,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 CARTESIA_API_KEY = os.getenv("CARTESIA_API_KEY", "").strip()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "").strip()
 
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", 8000))
 
-# Default Cartesia Sonic Voice ID (Sarah - Friendly, natural conversational voice)
+# Groq Model Configuration
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+GROQ_STT_MODEL = os.getenv("GROQ_STT_MODEL", "whisper-large-v3-turbo")
+
+# Cartesia Sonic Voice Configuration
 DEFAULT_VOICE_ID = os.getenv("CARTESIA_VOICE_ID", "e07c00bc-4134-4eae-9ea4-1a55fb45746b")
 CARTESIA_MODEL_ID = "sonic-latest"
-
-# Mistral Model
-MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "ministral-14b-latest")
-
-# Audio Format
-SAMPLE_RATE = 44100
-AUDIO_ENCODING = "pcm_f32le"
 
 # Conversational System Prompt for fast voice assistant responses
 DEFAULT_SYSTEM_PROMPT = (
