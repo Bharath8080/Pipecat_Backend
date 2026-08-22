@@ -243,6 +243,22 @@ wheels = [
 ]
 
 [[package]]
+name = "deepgram-sdk"
+version = "7.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+    { name = "typing-extensions" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/aa/62/35862ebd6dc3873d7f67319afb775143b86fbf0fa1b1ab6697249325bfd4/deepgram_sdk-7.7.0.tar.gz", hash = "sha256:4cce45c853d6caebbed62081d9118b915a2f3a2e54eb420ff5148c30e16dcffd", size = 242704, upload-time = "2026-08-12T13:26:28.154Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/38/fa/7db3da57efe9b7919d57c4aac0eb9cbdf2ee40ed766316aada60cce89c03/deepgram_sdk-7.7.0-py3-none-any.whl", hash = "sha256:25355b2e119f969c8614136e494ef30be91a06c56152a9cba49535ef3f18f82c", size = 633789, upload-time = "2026-08-12T13:26:26.738Z" },
+]
+
+[[package]]
 name = "defusedxml"
 version = "0.7.1"
 source = { registry = "https://pypi.org/simple" }
@@ -551,6 +567,23 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/89/76/c615883b7b521ead2944bb3480398cbb07e12b7b4e4d073d3752eb721558/frozenlist-1.8.0-cp314-cp314t-win_amd64.whl", hash = "sha256:06be8f67f39c8b1dc671f5d83aaefd3358ae5cdcf8314552c57e7ed3e6475bdd", size = 49451, upload-time = "2025-10-06T05:37:53.425Z" },
     { url = "https://files.pythonhosted.org/packages/e0/a3/5982da14e113d07b325230f95060e2169f5311b1017ea8af2a29b374c289/frozenlist-1.8.0-cp314-cp314t-win_arm64.whl", hash = "sha256:102e6314ca4da683dca92e3b1355490fed5f313b768500084fbe6371fddfdb79", size = 42507, upload-time = "2025-10-06T05:37:54.513Z" },
     { url = "https://files.pythonhosted.org/packages/9a/9a/e35b4a917281c0b8419d4207f4334c8e8c5dbf4f3f5f9ada73958d937dcc/frozenlist-1.8.0-py3-none-any.whl", hash = "sha256:0c18a16eab41e82c295618a77502e17b195883241c563b00f0aa5106fc4eaa0d", size = 13409, upload-time = "2025-10-06T05:38:16.721Z" },
+]
+
+[[package]]
+name = "groq"
+version = "1.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/67/3e/687064918e861082cb02165872bbda31269126a108a78794dae86ddadae2/groq-1.6.0.tar.gz", hash = "sha256:c4237ecf0053ba85fd926bb31cb4b178996310474b4618867994e3e40d8e3c02", size = 158424, upload-time = "2026-07-24T17:25:49.517Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/20/40/164338d796cf41ea5930a42023e986d8c993720bed670d5aa143e5854873/groq-1.6.0-py3-none-any.whl", hash = "sha256:fa16db582455db324adcff1b5908519474736872e28cd5c8fa2b8bef6860e12a", size = 143693, upload-time = "2026-07-24T17:25:48.2Z" },
 ]
 
 [[package]]
@@ -1224,6 +1257,12 @@ wheels = [
 ]
 
 [package.optional-dependencies]
+deepgram = [
+    { name = "deepgram-sdk" },
+]
+groq = [
+    { name = "groq" },
+]
 mistral = [
     { name = "mistralai" },
 ]
@@ -2042,7 +2081,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "loguru" },
-    { name = "pipecat-ai", extra = ["mistral"] },
+    { name = "pipecat-ai", extra = ["deepgram", "groq", "mistral"] },
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "websockets" },
@@ -2052,7 +2091,7 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.141.1" },
     { name = "loguru", specifier = ">=0.7.3" },
-    { name = "pipecat-ai", extras = ["cartesia", "mistral", "silero"], specifier = ">=1.7.0" },
+    { name = "pipecat-ai", extras = ["cartesia", "deepgram", "elevenlabs", "groq", "mistral", "silero"], specifier = ">=1.7.0" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "python-dotenv", specifier = ">=1.2.3" },
     { name = "websockets", specifier = ">=17.0.1" },

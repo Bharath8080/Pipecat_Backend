@@ -1,28 +1,21 @@
 import os
 from dotenv import load_dotenv
 
-# Load .env file
 load_dotenv()
 
-CARTESIA_API_KEY = os.getenv("CARTESIA_API_KEY", "").strip()
+# API Keys
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
-MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "").strip()
+DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY", "").strip()
+ELEVENLABS_API_KEY = (os.getenv("ELEVENLABS_API_KEY") or os.getenv("ELEVEN_API_KEY", "")).strip()
+CARTESIA_API_KEY = os.getenv("CARTESIA_API_KEY", "").strip()
 
-HOST = os.getenv("HOST", "127.0.0.1")
-PORT = int(os.getenv("PORT", 8000))
-
-# Groq Model Configuration
-GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+# Groq STT & LLM
 GROQ_STT_MODEL = os.getenv("GROQ_STT_MODEL", "whisper-large-v3-turbo")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 
-# Cartesia Sonic Voice Configuration
+# TTS Models & Voices
+DEEPGRAM_VOICE = os.getenv("DEEPGRAM_VOICE", "flux-alexis-en")
+ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+ELEVENLABS_MODEL_ID = os.getenv("ELEVENLABS_MODEL_ID", "eleven_flash_v2_5")
 DEFAULT_VOICE_ID = os.getenv("CARTESIA_VOICE_ID", "e07c00bc-4134-4eae-9ea4-1a55fb45746b")
-CARTESIA_MODEL_ID = "sonic-latest"
-
-# Conversational System Prompt for fast voice assistant responses
-DEFAULT_SYSTEM_PROMPT = (
-    "You are a helpful, witty, and concise real-time voice assistant. "
-    "Your responses will be spoken aloud to the user using text-to-speech. "
-    "Keep your answers brief, natural, conversational, and direct (1 to 2 sentences max). "
-    "Avoid bullet points, long lists, markdown formatting, emojis, or code blocks unless explicitly requested."
-)
+CARTESIA_MODEL_ID = os.getenv("CARTESIA_MODEL_ID", "sonic-latest")
