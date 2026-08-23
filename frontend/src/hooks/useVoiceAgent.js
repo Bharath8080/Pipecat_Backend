@@ -26,6 +26,7 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
   const botAnalyserRef = useRef(null);
   const nextPlayTimeRef = useRef(0);
   const isSpeakingRef = useRef(false);
+  const speakingDebounceRef = useRef(null);
   const animFrameRef = useRef(null);
   const smoothedInVolRef = useRef(0);
   const smoothedOutVolRef = useRef(0);
@@ -51,20 +52,19 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
         botAnalyserRef.current.getByteFrequencyData(outData);
         const sum = outData.reduce((acc, val) => acc + val, 0);
         const avg = sum / (outData.length || 1);
-        rawOut = Math.min(1, (avg / 255) * 1.8);
+        rawOut = Math.min(1, (avg / 255) * 2.2);
       }
 
-      // Smooth interpolation for fluid Orb animations
+      // Smooth volume interpolation (EMA)
       smoothedInVolRef.current += (rawIn - smoothedInVolRef.current) * 0.35;
       smoothedOutVolRef.current += (rawOut - smoothedOutVolRef.current) * 0.35;
 
-      const inVol = Number(smoothedInVolRef.current.toFixed(3));
-      const outVol = Number(smoothedOutVolRef.current.toFixed(3));
-      const maxVol = Math.max(inVol, outVol);
+      const curIn = Number(smoothedInVolRef.current.toFixed(3));
+      const curOut = Number(smoothedOutVolRef.current.toFixed(3));
 
-      setInputVolume(inVol);
-      setOutputVolume(outVol);
-      setVolume(maxVol);
+      setInputVolume(curIn);
+      setOutputVolume(curOut);
+      setVolume(Math.max(curIn, curOut));
 
       animFrameRef.current = requestAnimationFrame(update);
     };
@@ -72,11 +72,20 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
     animFrameRef.current = requestAnimationFrame(update);
   }, []);
 
-  // Stop Call & Teardown
-  const stopCall = useCallback(() => {
+  const stopVolumeLoop = useCallback(() => {
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
+    }
+  }, []);
+
+  // Stop Call & Cleanup
+  const stopCall = useCallback(() => {
+    stopVolumeLoop();
+
+    if (speakingDebounceRef.current) {
+      clearTimeout(speakingDebounceRef.current);
+      speakingDebounceRef.current = null;
     }
 
     if (wsRef.current) {
@@ -114,7 +123,7 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
     setOutputVolume(0);
     setVolume(0);
     setOrbState('idle');
-  }, []);
+  }, [stopVolumeLoop]);
 
   // Start Call & Connect
   const startCall = useCallback(async () => {
@@ -209,22 +218,59 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
           bufferSource.start(nextPlayTimeRef.current);
           nextPlayTimeRef.current += audioBuffer.duration;
 
+          // Clear any pending transition back to listening
+          if (speakingDebounceRef.current) {
+            clearTimeout(speakingDebounceRef.current);
+            speakingDebounceRef.current = null;
+          }
+
           isSpeakingRef.current = true;
           setOrbState('speaking');
 
           bufferSource.onended = () => {
-            if (ctx.currentTime >= nextPlayTimeRef.current - 0.05) {
-              isSpeakingRef.current = false;
-              setOrbState('listening');
+            // Only initiate listening transition if this was the last queued audio chunk
+            if (ctx.currentTime >= nextPlayTimeRef.current - 0.08) {
+              if (speakingDebounceRef.current) {
+                clearTimeout(speakingDebounceRef.current);
+              }
+              // Smooth 350ms debounce before returning to listening to prevent rapid flickering
+              speakingDebounceRef.current = setTimeout(() => {
+                isSpeakingRef.current = false;
+                setOrbState((prev) => (prev === 'speaking' ? 'listening' : prev));
+                speakingDebounceRef.current = null;
+              }, 350);
             }
           };
         } else if (typeof event.data === 'string') {
-          // JSON Transcripts
+          // JSON Transcripts & State Signals
           try {
             const data = JSON.parse(event.data);
 
-            if (data.type === 'user_transcript') {
+            if (data.type === 'bot_state') {
+              if (data.state === 'speaking') {
+                if (speakingDebounceRef.current) {
+                  clearTimeout(speakingDebounceRef.current);
+                  speakingDebounceRef.current = null;
+                }
+                isSpeakingRef.current = true;
+                setOrbState('speaking');
+              } else if (data.state === 'thinking') {
+                if (!isSpeakingRef.current) {
+                  setOrbState('thinking');
+                }
+              } else if (data.state === 'listening') {
+                if (!isSpeakingRef.current && (!ctx || ctx.currentTime >= nextPlayTimeRef.current - 0.05)) {
+                  setOrbState('listening');
+                }
+              }
+            } else if (data.type === 'user_transcript') {
+              if (speakingDebounceRef.current) {
+                clearTimeout(speakingDebounceRef.current);
+                speakingDebounceRef.current = null;
+              }
+              isSpeakingRef.current = false;
               setOrbState(data.final ? 'thinking' : 'listening');
+
               setMessages((prev) => {
                 const updated = [...prev];
                 const last = updated[updated.length - 1];
@@ -314,6 +360,19 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
     };
   }, [stopCall]);
 
+  // Send Text Message to Agent
+  const sendMessage = useCallback((text) => {
+    if (!text || !text.trim()) return;
+    const trimmed = text.trim();
+
+    setOrbState('thinking');
+
+    // Send plain string over WebSocket to Pipecat
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(trimmed);
+    }
+  }, []);
+
   return {
     orbState,
     volume,
@@ -325,6 +384,7 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
     startCall,
     stopCall,
     toggleMute,
+    sendMessage,
     clearMessages: () => setMessages([]),
   };
 }

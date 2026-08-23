@@ -4,6 +4,8 @@ from loguru import logger
 
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.frames.frames import (
+    BotStartedSpeakingFrame,
+    BotStoppedSpeakingFrame,
     EndFrame,
     Frame,
     InputAudioRawFrame,
@@ -11,6 +13,8 @@ from pipecat.frames.frames import (
     OutputAudioRawFrame,
     TextFrame,
     TranscriptionFrame,
+    UserStartedSpeakingFrame,
+    UserStoppedSpeakingFrame,
 )
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
@@ -43,7 +47,7 @@ logger.add(sys.stderr, level="INFO")
 
 
 class FastAPIRealtimeSerializer(FrameSerializer):
-    """Serializes outgoing raw PCM audio bytes over WebSocket."""
+    """Serializes outgoing raw PCM audio bytes and deserializes incoming PCM audio or text."""
 
     async def serialize(self, frame: Frame) -> str | bytes | None:
         if isinstance(frame, OutputAudioRawFrame):
@@ -57,11 +61,18 @@ class FastAPIRealtimeSerializer(FrameSerializer):
                 num_channels=1,
                 sample_rate=16000,
             )
+        if isinstance(data, str) and data.strip():
+            return TranscriptionFrame(
+                text=data.strip(),
+                user_id="user",
+                timestamp="",
+                finalized=True,
+            )
         return None
 
 
 class TranscriptBroadcaster(FrameProcessor):
-    """Transmits live user STT and bot streaming text directly to the UI over WebSocket."""
+    """Transmits live user STT, bot streaming text, and state synchronization directly to the UI."""
 
     def __init__(self, websocket):
         super().__init__()
@@ -76,9 +87,16 @@ class TranscriptBroadcaster(FrameProcessor):
         elif isinstance(frame, TranscriptionFrame):
             if frame.text and frame.text.strip():
                 await self._send({"type": "user_transcript", "text": frame.text.strip(), "final": True})
+                await self._send({"type": "bot_state", "state": "thinking"})
         elif isinstance(frame, TextFrame):
             if frame.text:
                 await self._send({"type": "bot_transcript", "text": frame.text})
+        elif isinstance(frame, BotStartedSpeakingFrame):
+            await self._send({"type": "bot_state", "state": "speaking"})
+        elif isinstance(frame, BotStoppedSpeakingFrame):
+            await self._send({"type": "bot_state", "state": "listening"})
+        elif isinstance(frame, UserStartedSpeakingFrame):
+            await self._send({"type": "bot_state", "state": "listening"})
 
         await self.push_frame(frame, direction)
 
