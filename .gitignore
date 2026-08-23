@@ -30,3 +30,9 @@ dist/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Vector Stores & Uploads
+faiss_index/
+qdrant_db/
+chroma_db/
+uploaded_docs/

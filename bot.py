@@ -10,6 +10,8 @@ from pipecat.frames.frames import (
     Frame,
     InputAudioRawFrame,
     InterimTranscriptionFrame,
+    LLMFullResponseEndFrame,
+    LLMFullResponseStartFrame,
     OutputAudioRawFrame,
     TextFrame,
     TranscriptionFrame,
@@ -32,7 +34,6 @@ from pipecat.services.deepgram.flux.tts import DeepgramFluxTTSService
 from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.elevenlabs.stt import ElevenLabsRealtimeSTTService
 from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
-from pipecat.services.groq.llm import GroqLLMService
 from pipecat.services.groq.stt import GroqSTTService
 from pipecat.services.tts_service import TextAggregationMode
 from pipecat.audio.turn.smart_turn.local_smart_turn_v3 import LocalSmartTurnAnalyzerV3
@@ -42,11 +43,59 @@ from pipecat.transports.websocket.fastapi import (
     FastAPIWebsocketParams,
     FastAPIWebsocketTransport,
 )
+from pipecat.processors.frameworks.langchain import LangchainProcessor
+from langchain_core.messages import AIMessageChunk
+from langchain_core.runnables import Runnable, RunnableLambda, RunnablePassthrough
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_groq import ChatGroq
 
 import config
+import rag_engine
 
 logger.remove()
 logger.add(sys.stderr, level="INFO")
+
+
+class LangchainRAGProcessor(LangchainProcessor):
+    """Integrates LangChain RAG chains with Pipecat voice pipeline, handling streaming tokens and answer dicts."""
+
+    def __init__(self, chain: Runnable, transcript_key: str = "input"):
+        super().__init__(chain, transcript_key)
+        self._chain = chain
+        self._transcript_key = transcript_key
+
+    @staticmethod
+    def __get_token_value(text: str | AIMessageChunk | dict) -> str:
+        match text:
+            case str():
+                return text
+            case AIMessageChunk():
+                return text.content if isinstance(text.content, str) else str(text.content)
+            case dict() as d if "answer" in d:
+                return d["answer"]
+            case _:
+                return ""
+
+    async def _ainvoke(self, text: str):
+        logger.info(f"🧠 LangChain RAG Invoking chain with: '{text}'")
+        await self.push_frame(LLMFullResponseStartFrame())
+        try:
+            async for token in self._chain.astream(
+                {self._transcript_key: text},
+                config={"configurable": {"session_id": self._participant_id}},
+            ):
+                token_val = self.__get_token_value(token)
+                if token_val:
+                    frame = TextFrame(token_val)
+                    frame.includes_inter_frame_spaces = True
+                    await self.push_frame(frame)
+        except GeneratorExit:
+            logger.warning(f"{self} generator was closed prematurely")
+        except Exception as e:
+            logger.exception(f"{self} error in LangChain stream: {e}")
+        finally:
+            await self.push_frame(LLMFullResponseEndFrame())
 
 
 class FastAPIRealtimeSerializer(FrameSerializer):
@@ -153,11 +202,49 @@ async def run_bot(websocket_client):
         strategy_type=ServiceSwitcherStrategyFailover,
     )
 
-    # 2. LLM (Groq)
-    llm = GroqLLMService(
-        api_key=config.GROQ_API_KEY,
-        settings=GroqLLMService.Settings(model=config.GROQ_MODEL),
+    # 2. LLM & LangChain RAG Chain
+    groq_llm = ChatGroq(
+        model=config.GROQ_MODEL,
+        groq_api_key=config.GROQ_API_KEY,
+        temperature=config.LLM_TEMPERATURE,
+        reasoning_effort="none",
     )
+
+    def extract_query(x) -> str:
+        if isinstance(x, dict):
+            return str(x.get("input", "") or "")
+        return str(x)
+
+    def get_context(query_or_dict) -> str:
+        q = extract_query(query_or_dict)
+        return rag_engine.retrieve_context(q, top_k=3)
+
+    rag_prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                (
+                    "You are a helpful voice assistant with knowledge of the uploaded documents. "
+                    "Answer the user's questions based on the retrieved document context. "
+                    "Do not use markdown formatting, emojis, or bullet points in spoken responses.\n\n"
+                    "Context:\n{context}"
+                ),
+            ),
+            ("human", "{input}"),
+        ]
+    )
+
+    rag_chain = (
+        {
+            "context": RunnableLambda(get_context),
+            "input": RunnableLambda(extract_query),
+        }
+        | rag_prompt
+        | groq_llm
+        | StrOutputParser()
+    )
+
+    langchain_processor = LangchainRAGProcessor(chain=rag_chain)
 
     # 3. TTS with 3-Tier Failover (1st: ElevenLabs, 2nd: Deepgram, 3rd: Cartesia)
     elevenlabs_tts = ElevenLabsTTSService(
@@ -195,11 +282,7 @@ async def run_bot(websocket_client):
             {
                 "role": "system",
                 "content": (
-                    "You are a friendly, witty, and concise real-time voice assistant with live web search capabilities. "
-                    "Always answer user queries with accurate, up-to-date, and real-time information. "
-                    "Your responses will be spoken aloud using text-to-speech. "
-                    "Keep your responses short, natural, direct, and conversational (1 to 2 sentences max). "
-                    "Do not use markdown formatting, emojis, citations, or bullet points in spoken responses."
+                    "You are a helpful, factual, and direct real-time voice assistant with document knowledge."
                 ),
             }
         ]
@@ -221,7 +304,7 @@ async def run_bot(websocket_client):
             stt_switcher,
             user_transcripts,
             user_aggregator,
-            llm,
+            langchain_processor,
             bot_transcripts,
             tts_switcher,
             transport.output(),

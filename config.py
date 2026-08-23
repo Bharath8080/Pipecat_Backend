@@ -11,7 +11,8 @@ CARTESIA_API_KEY = os.getenv("CARTESIA_API_KEY", "").strip()
 
 # Groq STT & LLM
 GROQ_STT_MODEL = os.getenv("GROQ_STT_MODEL", "whisper-large-v3-turbo")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "groq/compound-mini")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.0"))
 
 # TTS Models & Voices
 DEEPGRAM_VOICE = os.getenv("DEEPGRAM_VOICE", "flux-alexis-en")
