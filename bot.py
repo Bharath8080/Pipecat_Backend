@@ -35,6 +35,9 @@ from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
 from pipecat.services.groq.llm import GroqLLMService
 from pipecat.services.groq.stt import GroqSTTService
 from pipecat.services.tts_service import TextAggregationMode
+from pipecat.audio.turn.smart_turn.local_smart_turn_v3 import LocalSmartTurnAnalyzerV3
+from pipecat.audio.vad.silero import SileroVADAnalyzer
+from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.transports.websocket.fastapi import (
     FastAPIWebsocketParams,
     FastAPIWebsocketTransport,
@@ -114,6 +117,8 @@ async def run_bot(websocket_client):
             audio_in_enabled=True,
             audio_out_enabled=True,
             add_wav_header=False,
+            vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2)),
+            turn_analyzer=LocalSmartTurnAnalyzerV3(),
             serializer=FastAPIRealtimeSerializer(),
             audio_in_sample_rate=16000,
             audio_out_sample_rate=16000,
@@ -190,10 +195,11 @@ async def run_bot(websocket_client):
             {
                 "role": "system",
                 "content": (
-                    "You are a friendly, witty, and concise real-time voice assistant. "
+                    "You are a friendly, witty, and concise real-time voice assistant with live web search capabilities. "
+                    "Always answer user queries with accurate, up-to-date, and real-time information. "
                     "Your responses will be spoken aloud using text-to-speech. "
                     "Keep your responses short, natural, direct, and conversational (1 to 2 sentences max). "
-                    "Do not use markdown formatting, emojis, or bullet points."
+                    "Do not use markdown formatting, emojis, citations, or bullet points in spoken responses."
                 ),
             }
         ]
