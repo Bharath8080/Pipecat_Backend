@@ -7,7 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.141.1",
     "loguru>=0.7.3",
-    "pipecat-ai[cartesia,deepgram,elevenlabs,groq,mistral,silero]>=1.7.0",
+    "pipecat-ai[cartesia,deepgram,elevenlabs,groq,mcp,mistral,silero,smallwebrtc,webrtc]>=1.7.0",
     "pydantic>=2.13.4",
     "python-dotenv>=1.2.3",
     "websockets>=17.0.1",
