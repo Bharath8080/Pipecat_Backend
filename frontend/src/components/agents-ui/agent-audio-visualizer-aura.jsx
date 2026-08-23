@@ -1,21 +1,13 @@
 import React, { useEffect, useRef, useMemo } from 'react';
-import { cva } from 'class-variance-authority';
 import { cn } from '../../lib/utils';
 
-export const AgentAudioVisualizerAuraVariants = cva('relative aspect-square flex items-center justify-center', {
-  variants: {
-    size: {
-      icon: 'w-6 h-6',
-      sm: 'w-16 h-16',
-      md: 'w-36 h-36',
-      lg: 'w-72 h-72',
-      xl: 'w-80 h-80 sm:w-[420px] sm:h-[420px]',
-    },
-  },
-  defaultVariants: {
-    size: 'xl',
-  },
-});
+const SIZE_CLASSES = {
+  icon: 'w-6 h-6',
+  sm: 'w-16 h-16',
+  md: 'w-36 h-36',
+  lg: 'w-72 h-72',
+  xl: 'w-80 h-80 sm:w-[420px] sm:h-[420px]',
+};
 
 function hexToRgb(hexColor) {
   try {
@@ -283,7 +275,7 @@ export function AgentAudioVisualizerAura({
   return (
     <div
       data-lk-state={state}
-      className={cn(AgentAudioVisualizerAuraVariants({ size }), className)}
+      className={cn('relative aspect-square flex items-center justify-center', SIZE_CLASSES[size] || SIZE_CLASSES.xl, className)}
       style={style}
       {...props}
     >
