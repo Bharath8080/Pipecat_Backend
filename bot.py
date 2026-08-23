@@ -154,14 +154,7 @@ async def run_bot(websocket_client):
         settings=GroqLLMService.Settings(model=config.GROQ_MODEL),
     )
 
-    # 3. TTS with 3-Tier Failover
-    deepgram_tts = DeepgramFluxTTSService(
-        api_key=config.DEEPGRAM_API_KEY,
-        sample_rate=16000,
-        text_aggregation_mode=TextAggregationMode.TOKEN,
-        settings=DeepgramFluxTTSService.Settings(voice=config.DEEPGRAM_VOICE),
-    )
-
+    # 3. TTS with 3-Tier Failover (1st: ElevenLabs, 2nd: Deepgram, 3rd: Cartesia)
     elevenlabs_tts = ElevenLabsTTSService(
         api_key=config.ELEVENLABS_API_KEY,
         sample_rate=16000,
@@ -169,6 +162,13 @@ async def run_bot(websocket_client):
             voice=config.ELEVENLABS_VOICE_ID,
             model=config.ELEVENLABS_MODEL_ID,
         ),
+    )
+
+    deepgram_tts = DeepgramFluxTTSService(
+        api_key=config.DEEPGRAM_API_KEY,
+        sample_rate=16000,
+        text_aggregation_mode=TextAggregationMode.TOKEN,
+        settings=DeepgramFluxTTSService.Settings(voice=config.DEEPGRAM_VOICE),
     )
 
     cartesia_tts = CartesiaTTSService(
@@ -181,7 +181,7 @@ async def run_bot(websocket_client):
     )
 
     tts_switcher = ServiceSwitcher(
-        services=[deepgram_tts, elevenlabs_tts, cartesia_tts],
+        services=[elevenlabs_tts, deepgram_tts, cartesia_tts],
         strategy_type=ServiceSwitcherStrategyFailover,
     )
 
