@@ -60,7 +60,7 @@ export function AgentChatTranscript({
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-3 py-3 pr-1 min-h-0 text-xs sm:text-sm">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden space-y-3 py-3 pr-1 min-h-0 text-xs sm:text-sm">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center text-neutral-600 text-xs py-8">
             <Sparkles className="w-5 h-5 text-neutral-700 mb-2 opacity-50" />
@@ -71,19 +71,19 @@ export function AgentChatTranscript({
           messages.map((m, i) => {
             const isUser = m.role === 'user';
             return (
-              <div key={i} className={cn('flex flex-col', isUser ? 'items-end' : 'items-start')}>
+              <div key={i} className={cn('flex flex-col max-w-full', isUser ? 'items-end' : 'items-start')}>
                 <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-500 mb-1 px-1">
                   {isUser ? 'YOU' : 'AGENT'}
                 </span>
                 <div
                   className={cn(
-                    'max-w-[88%] px-3.5 py-2 rounded-xl leading-relaxed text-xs sm:text-sm transition-all',
+                    'max-w-[90%] w-fit px-3.5 py-2.5 rounded-xl leading-relaxed text-xs sm:text-sm transition-all break-words [overflow-wrap:anywhere] [word-break:break-word] overflow-hidden',
                     isUser
                       ? 'bg-neutral-800 text-neutral-100 border border-neutral-700'
                       : 'bg-[#15181e] text-neutral-300 border border-white/5'
                   )}
                 >
-                  <p className="whitespace-pre-wrap">{m.text}</p>
+                  <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word]">{m.text}</p>
                 </div>
               </div>
             );

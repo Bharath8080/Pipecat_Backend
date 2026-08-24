@@ -53,19 +53,40 @@ export function AgentAudioVisualizerBar({
     });
   }, [barCount, state, volume, animIndex]);
 
-  const heightClass = size === 'sm' ? 'h-14 gap-1' : size === 'lg' ? 'h-56 gap-4' : 'h-72 sm:h-80 gap-5 sm:gap-7';
-  const widthClass = size === 'sm' ? 'w-2 min-h-2' : size === 'lg' ? 'w-8 min-h-8' : 'w-11 sm:w-14 min-h-11 sm:min-h-14';
+  const heightClass =
+    size === 'sm'
+      ? 'h-10 gap-1.5'
+      : size === 'md'
+      ? 'h-20 gap-2'
+      : size === 'lg'
+      ? 'h-32 sm:h-36 gap-2.5 sm:gap-3'
+      : 'h-40 sm:h-48 gap-3 sm:gap-4';
+
+  const widthClass =
+    size === 'sm'
+      ? 'w-1.5 min-h-[6px]'
+      : size === 'md'
+      ? 'w-2.5 min-h-[10px]'
+      : size === 'lg'
+      ? 'w-3.5 sm:w-4 min-h-[14px]'
+      : 'w-4 sm:w-5 min-h-[16px]';
 
   return (
-    <div className={cn('relative flex items-center justify-center select-none', heightClass, className)}>
+    <div
+      className={cn(
+        'relative flex items-center justify-center select-none max-w-full px-4 py-2',
+        heightClass,
+        className
+      )}
+    >
       {bands.map((b, i) => (
         <div
           key={i}
           style={{
-            height: `${b.fraction * 100}%`,
+            height: `${Math.max(12, b.fraction * 100)}%`,
             backgroundColor: color,
-            opacity: b.active ? 0.95 : 0.28,
-            boxShadow: b.active ? `0 0 24px ${color}66` : 'none',
+            opacity: b.active ? 0.95 : 0.35,
+            boxShadow: b.active ? `0 0 20px ${color}80, 0 0 40px ${color}33` : 'none',
           }}
           className={cn('rounded-full transition-all duration-150 ease-out', widthClass)}
         />

@@ -129,13 +129,13 @@ export function App() {
                 />
               </div>
             ) : (
-              <div className="w-48 sm:w-64 h-24 flex items-center justify-center">
+              <div className="w-full max-w-[320px] h-36 sm:h-44 flex items-center justify-center">
                 <AgentAudioVisualizerBar
                   state={orbState}
                   volume={volume}
-                  barCount={24}
+                  barCount={7}
                   size="lg"
-                  theme="aura"
+                  color="#E2E8F0"
                 />
               </div>
             )}
@@ -164,7 +164,7 @@ export function App() {
 
         {/* Conversation Drawer / Tile */}
         {isChatOpen && (
-          <div className="w-full md:w-[380px] lg:w-[420px] h-[340px] md:h-full shrink-0 animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full md:w-[380px] lg:w-[420px] h-[340px] md:h-full shrink-0 animate-in fade-in zoom-in-95 duration-200 min-w-0 overflow-hidden">
             <AgentChatTranscript
               messages={messages}
               onSendMessage={sendMessage}

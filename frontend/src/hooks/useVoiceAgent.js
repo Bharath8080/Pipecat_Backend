@@ -25,11 +25,30 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
   const micAnalyserRef = useRef(null);
   const botAnalyserRef = useRef(null);
   const nextPlayTimeRef = useRef(0);
+  const activeSourcesRef = useRef(new Set());
   const isSpeakingRef = useRef(false);
-  const speakingDebounceRef = useRef(null);
   const animFrameRef = useRef(null);
   const smoothedInVolRef = useRef(0);
   const smoothedOutVolRef = useRef(0);
+
+  // Stop currently playing/queued bot audio (used on interruption)
+  const stopAudioPlayback = useCallback(() => {
+    activeSourcesRef.current.forEach((src) => {
+      try {
+        src.stop();
+        src.disconnect();
+      } catch (e) {
+        // ignore
+      }
+    });
+    activeSourcesRef.current.clear();
+    if (audioCtxRef.current) {
+      nextPlayTimeRef.current = audioCtxRef.current.currentTime;
+    }
+    isSpeakingRef.current = false;
+    smoothedOutVolRef.current = 0;
+    setOutputVolume(0);
+  }, []);
 
   // Real-time Volume Monitoring Loop (Calculates distinct inputVolume & outputVolume for orb-ui)
   const startVolumeLoop = useCallback(() => {
@@ -43,7 +62,7 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
         micAnalyserRef.current.getByteFrequencyData(inData);
         const sum = inData.reduce((acc, val) => acc + val, 0);
         const avg = sum / (inData.length || 1);
-        rawIn = Math.min(1, (avg / 255) * 2.2);
+        rawIn = Math.min(1, (avg / 255) * 2.4);
       }
 
       // 2. Measure Bot Output Volume
@@ -52,19 +71,22 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
         botAnalyserRef.current.getByteFrequencyData(outData);
         const sum = outData.reduce((acc, val) => acc + val, 0);
         const avg = sum / (outData.length || 1);
-        rawOut = Math.min(1, (avg / 255) * 2.2);
+        rawOut = Math.min(1, (avg / 255) * 2.6);
       }
 
-      // Smooth volume interpolation (EMA)
-      smoothedInVolRef.current += (rawIn - smoothedInVolRef.current) * 0.35;
-      smoothedOutVolRef.current += (rawOut - smoothedOutVolRef.current) * 0.35;
+      // Smooth volume interpolation (Attack/Release envelope)
+      const inAttack = rawIn > smoothedInVolRef.current ? 0.45 : 0.2;
+      const outAttack = rawOut > smoothedOutVolRef.current ? 0.5 : 0.25;
+
+      smoothedInVolRef.current += (rawIn - smoothedInVolRef.current) * inAttack;
+      smoothedOutVolRef.current += (rawOut - smoothedOutVolRef.current) * outAttack;
 
       const curIn = Number(smoothedInVolRef.current.toFixed(3));
       const curOut = Number(smoothedOutVolRef.current.toFixed(3));
 
       setInputVolume(curIn);
       setOutputVolume(curOut);
-      setVolume(Math.max(curIn, curOut));
+      setVolume(isSpeakingRef.current ? curOut : curIn);
 
       animFrameRef.current = requestAnimationFrame(update);
     };
@@ -82,11 +104,7 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
   // Stop Call & Cleanup
   const stopCall = useCallback(() => {
     stopVolumeLoop();
-
-    if (speakingDebounceRef.current) {
-      clearTimeout(speakingDebounceRef.current);
-      speakingDebounceRef.current = null;
-    }
+    stopAudioPlayback();
 
     if (wsRef.current) {
       try {
@@ -123,7 +141,7 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
     setOutputVolume(0);
     setVolume(0);
     setOrbState('idle');
-  }, [stopVolumeLoop]);
+  }, [stopVolumeLoop, stopAudioPlayback]);
 
   // Start Call & Connect
   const startCall = useCallback(async () => {
@@ -141,10 +159,12 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
       // 2. Analysers for volume measurement
       const micAnalyser = ctx.createAnalyser();
       micAnalyser.fftSize = 64;
+      micAnalyser.smoothingTimeConstant = 0.4;
       micAnalyserRef.current = micAnalyser;
 
       const botAnalyser = ctx.createAnalyser();
       botAnalyser.fftSize = 64;
+      botAnalyser.smoothingTimeConstant = 0.4;
       botAnalyserRef.current = botAnalyser;
 
       // 3. Microphone Access
@@ -218,27 +238,15 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
           bufferSource.start(nextPlayTimeRef.current);
           nextPlayTimeRef.current += audioBuffer.duration;
 
-          // Clear any pending transition back to listening
-          if (speakingDebounceRef.current) {
-            clearTimeout(speakingDebounceRef.current);
-            speakingDebounceRef.current = null;
-          }
-
+          activeSourcesRef.current.add(bufferSource);
           isSpeakingRef.current = true;
           setOrbState('speaking');
 
           bufferSource.onended = () => {
-            // Only initiate listening transition if this was the last queued audio chunk
-            if (ctx.currentTime >= nextPlayTimeRef.current - 0.08) {
-              if (speakingDebounceRef.current) {
-                clearTimeout(speakingDebounceRef.current);
-              }
-              // Smooth 350ms debounce before returning to listening to prevent rapid flickering
-              speakingDebounceRef.current = setTimeout(() => {
-                isSpeakingRef.current = false;
-                setOrbState((prev) => (prev === 'speaking' ? 'listening' : prev));
-                speakingDebounceRef.current = null;
-              }, 350);
+            activeSourcesRef.current.delete(bufferSource);
+            if (activeSourcesRef.current.size === 0) {
+              isSpeakingRef.current = false;
+              setOrbState((prev) => (prev === 'speaking' ? 'listening' : prev));
             }
           };
         } else if (typeof event.data === 'string') {
@@ -248,28 +256,24 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
 
             if (data.type === 'bot_state') {
               if (data.state === 'speaking') {
-                if (speakingDebounceRef.current) {
-                  clearTimeout(speakingDebounceRef.current);
-                  speakingDebounceRef.current = null;
-                }
                 isSpeakingRef.current = true;
                 setOrbState('speaking');
               } else if (data.state === 'thinking') {
-                if (!isSpeakingRef.current) {
-                  setOrbState('thinking');
-                }
+                stopAudioPlayback();
+                setOrbState('thinking');
               } else if (data.state === 'listening') {
-                if (!isSpeakingRef.current && (!ctx || ctx.currentTime >= nextPlayTimeRef.current - 0.05)) {
+                if (activeSourcesRef.current.size === 0) {
+                  isSpeakingRef.current = false;
                   setOrbState('listening');
                 }
               }
             } else if (data.type === 'user_transcript') {
-              if (speakingDebounceRef.current) {
-                clearTimeout(speakingDebounceRef.current);
-                speakingDebounceRef.current = null;
+              if (data.final) {
+                stopAudioPlayback();
+                setOrbState('thinking');
+              } else {
+                setOrbState('listening');
               }
-              isSpeakingRef.current = false;
-              setOrbState(data.final ? 'thinking' : 'listening');
 
               setMessages((prev) => {
                 const updated = [...prev];
@@ -340,7 +344,7 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
       setOrbState('error');
       stopCall();
     }
-  }, [wsUrl, startVolumeLoop, stopCall]);
+  }, [wsUrl, startVolumeLoop, stopCall, stopAudioPlayback]);
 
   // Toggle Microphone Mute
   const toggleMute = useCallback(() => {
@@ -365,13 +369,14 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
     if (!text || !text.trim()) return;
     const trimmed = text.trim();
 
+    stopAudioPlayback();
     setOrbState('thinking');
 
     // Send plain string over WebSocket to Pipecat
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(trimmed);
     }
-  }, []);
+  }, [stopAudioPlayback]);
 
   return {
     orbState,
