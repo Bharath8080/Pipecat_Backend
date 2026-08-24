@@ -121,7 +121,7 @@ export function AgentControlBar({
           <button
             onClick={onStart}
             aria-label="Start call session"
-            className="flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/70 text-emerald-300 font-mono text-xs font-bold tracking-wider uppercase shadow-lg transition-all hover:scale-105 active:scale-95"
+            className="flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/70 text-emerald-300 font-outfit text-xs sm:text-sm font-bold tracking-wider uppercase shadow-lg transition-all hover:scale-105 active:scale-95 cursor-pointer"
           >
             <PhoneCall className="w-3.5 h-3.5 fill-current" />
             <span className="hidden sm:inline">Start Call</span>
@@ -131,7 +131,7 @@ export function AgentControlBar({
           <button
             onClick={onStop}
             aria-label="Disconnect agent session"
-            className="flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/80 text-rose-300 font-mono text-xs font-bold tracking-wider uppercase shadow-lg transition-all hover:scale-105 active:scale-95"
+            className="flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/80 text-rose-300 font-outfit text-xs sm:text-sm font-bold tracking-wider uppercase shadow-lg transition-all hover:scale-105 active:scale-95 cursor-pointer"
           >
             <PhoneOff className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">End Call</span>

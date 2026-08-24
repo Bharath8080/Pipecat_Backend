@@ -1,18 +1,49 @@
 import React, { useState } from 'react';
 import { useVoiceAgent } from './hooks/useVoiceAgent';
 import { Orb } from './components/ui/orb';
+import { ShimmeringText } from './components/ui/shimmering-text';
 import { AgentControlBar } from './components/agents-ui/agent-control-bar';
 import { AgentChatTranscript } from './components/agents-ui/agent-chat-transcript';
 import { DocumentUploadModal } from './components/agents-ui/document-upload-modal';
 import { FileText } from 'lucide-react';
 
-const STATUS_TEXT = {
-  idle: 'Press Start Call to begin conversation',
-  connecting: 'Connecting to agent...',
-  listening: 'Agent is listening, ask it a question',
-  thinking: 'Agent is processing...',
-  speaking: 'Agent is speaking...',
-  error: 'Connection error. Please try again.',
+const STATUS_CONFIG = {
+  idle: {
+    text: 'Press Start Call to begin conversation',
+    color: '#94a3b8',
+    shimmerColor: '#ffffff',
+    showDots: false,
+  },
+  connecting: {
+    text: 'Connecting to agent',
+    color: '#38bdf8',
+    shimmerColor: '#ffffff',
+    showDots: true,
+  },
+  listening: {
+    text: 'Agent is listening, ask it a question',
+    color: '#34d399',
+    shimmerColor: '#ffffff',
+    showDots: true,
+  },
+  thinking: {
+    text: 'Agent is processing',
+    color: '#fbbf24',
+    shimmerColor: '#ffffff',
+    showDots: true,
+  },
+  speaking: {
+    text: 'Agent is speaking',
+    color: '#22d3ee',
+    shimmerColor: '#ffffff',
+    showDots: true,
+  },
+  error: {
+    text: 'Connection error. Please try again.',
+    color: '#f87171',
+    shimmerColor: '#ffffff',
+    showDots: false,
+  },
 };
 
 const ORB_COLOR_PRESETS = [
@@ -71,10 +102,10 @@ export function App() {
       {/* 1. LiveKit Header */}
       <header className="h-14 px-4 sm:px-6 flex items-center justify-between border-b border-white/10 shrink-0 bg-[#0a0c0f]">
         <div className="flex items-center gap-3">
-          <div className="w-6 h-6 rounded-md bg-white/10 border border-white/20 flex items-center justify-center text-white font-mono font-bold text-xs">
+          <div className="w-6 h-6 rounded-md bg-white/10 border border-white/20 flex items-center justify-center text-white font-outfit font-bold text-xs">
             LK
           </div>
-          <span className="font-mono text-xs sm:text-sm font-semibold tracking-wider text-neutral-200 uppercase">
+          <span className="font-outfit text-xs sm:text-sm font-bold tracking-wider text-neutral-200 uppercase">
             LiveKit Voice RAG
           </span>
         </div>
@@ -103,13 +134,13 @@ export function App() {
           {/* Document Knowledge Base Button */}
           <button
             onClick={() => setIsDocsOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-neutral-300 text-xs font-mono transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-neutral-200 text-xs font-outfit font-semibold transition-all cursor-pointer"
             title="Manage RAG Knowledge Base Documents"
           >
             <FileText className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="font-medium">Documents</span>
+            <span className="font-semibold">Documents</span>
             {docCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800 text-[10px]">
+              <span className="px-1.5 py-0.2 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800 text-[10px] font-mono">
                 {docCount}
               </span>
             )}
@@ -119,7 +150,7 @@ export function App() {
 
       {/* Error Notification */}
       {errorMessage && (
-        <div className="w-fit mx-auto mt-2 px-4 py-1 rounded-lg bg-rose-950/90 border border-rose-800 text-rose-300 text-xs shadow-lg z-20 shrink-0">
+        <div className="w-fit mx-auto mt-2 px-4 py-1 rounded-lg bg-rose-950/90 border border-rose-800 text-rose-300 text-xs shadow-lg z-20 shrink-0 font-outfit font-medium">
           {errorMessage}
         </div>
       )}
@@ -129,7 +160,7 @@ export function App() {
         {/* Assistant Tile */}
         <div className="flex-1 flex flex-col justify-between items-center rounded-2xl bg-[#0c0e12]/80 border border-white/10 p-4 sm:p-6 min-h-0 relative overflow-hidden">
           {/* Tile Header Label */}
-          <div className="w-full flex items-center justify-between shrink-0 font-mono text-[10px] sm:text-[11px] tracking-widest text-neutral-500 uppercase">
+          <div className="w-full flex items-center justify-between shrink-0 font-outfit text-xs sm:text-sm tracking-wider text-neutral-400 font-bold uppercase">
             <span>ASSISTANT</span>
             <span className="flex items-center gap-1.5">
               <span
@@ -143,7 +174,7 @@ export function App() {
                     : 'bg-neutral-600'
                 }`}
               />
-              <span className="text-neutral-400">{orbState.toUpperCase()}</span>
+              <span className="text-neutral-300 font-bold">{orbState.toUpperCase()}</span>
             </span>
           </div>
 
@@ -168,10 +199,22 @@ export function App() {
               />
             </div>
 
-            {/* Subtitle status */}
-            <p className="mt-4 text-xs font-mono text-neutral-400 tracking-wide text-center">
-              {STATUS_TEXT[orbState] || STATUS_TEXT.idle}
-            </p>
+            {/* Subtitle status with Fluid ShimmeringText Animation */}
+            {(() => {
+              const currentStatus = STATUS_CONFIG[orbState] || STATUS_CONFIG.idle;
+              return (
+                <div className="mt-8 sm:mt-10 text-center min-h-[36px] flex items-center justify-center">
+                  <ShimmeringText
+                    text={currentStatus.text}
+                    className="font-outfit text-sm sm:text-base md:text-lg font-bold tracking-normal drop-shadow-sm"
+                    color={currentStatus.color}
+                    shimmerColor={currentStatus.shimmerColor}
+                    showDots={currentStatus.showDots}
+                    duration={4.0}
+                  />
+                </div>
+              );
+            })()}
           </div>
 
           {/* Bottom LiveKit Control Dock */}

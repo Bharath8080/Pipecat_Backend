@@ -117,10 +117,10 @@ export function DocumentUploadModal({ isOpen, onClose, onDocumentsChange }) {
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
+        <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0 font-outfit">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-cyan-400" />
-            <span className="font-mono text-xs uppercase tracking-wider font-semibold">
+            <span className="text-xs uppercase tracking-wider font-bold text-neutral-200">
               RAG Knowledge Base
             </span>
             <span className="px-2 py-0.5 rounded-full bg-white/10 text-neutral-300 font-mono text-[10px]">
@@ -129,7 +129,7 @@ export function DocumentUploadModal({ isOpen, onClose, onDocumentsChange }) {
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
+            className="p-1 rounded-lg hover:bg-white/10 text-neutral-400 hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
