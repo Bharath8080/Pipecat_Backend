@@ -73,10 +73,4 @@ if os.path.exists("frontend/dist"):
 
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="127.0.0.1",
-        port=8000,
-        reload=True,
-        reload_excludes=["faiss_index/*", "qdrant_db/*", "uploaded_docs/*", "frontend/*", "chroma_db/*", "*.log"],
-    )
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
