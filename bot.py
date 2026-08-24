@@ -10,16 +10,11 @@ from pipecat.frames.frames import (
     Frame,
     InputAudioRawFrame,
     InterimTranscriptionFrame,
-    InterruptionFrame,
     OutputAudioRawFrame,
-    TTSStartedFrame,
-    TTSStoppedFrame,
     TextFrame,
     TranscriptionFrame,
     UserStartedSpeakingFrame,
     UserStoppedSpeakingFrame,
-    VADUserStartedSpeakingFrame,
-    VADUserStoppedSpeakingFrame,
 )
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
@@ -108,13 +103,11 @@ class TranscriptBroadcaster(FrameProcessor):
         elif isinstance(frame, TextFrame):
             if frame.text:
                 await self._send({"type": "bot_transcript", "text": frame.text})
-        elif isinstance(frame, (TTSStartedFrame, BotStartedSpeakingFrame)):
+        elif isinstance(frame, BotStartedSpeakingFrame):
             await self._send({"type": "bot_state", "state": "speaking"})
-        elif isinstance(frame, (TTSStoppedFrame, BotStoppedSpeakingFrame)):
+        elif isinstance(frame, BotStoppedSpeakingFrame):
             await self._send({"type": "bot_state", "state": "listening"})
-        elif isinstance(frame, (UserStartedSpeakingFrame, VADUserStartedSpeakingFrame)):
-            await self._send({"type": "bot_state", "state": "listening"})
-        elif isinstance(frame, InterruptionFrame):
+        elif isinstance(frame, UserStartedSpeakingFrame):
             await self._send({"type": "bot_state", "state": "listening"})
 
         await self.push_frame(frame, direction)
@@ -252,7 +245,7 @@ async def run_bot(websocket_client):
     )
 
     user_transcripts = TranscriptBroadcaster(websocket_client)
-    bot_broadcaster = TranscriptBroadcaster(websocket_client)
+    bot_transcripts = TranscriptBroadcaster(websocket_client)
 
     pipeline = Pipeline(
         [
@@ -261,9 +254,9 @@ async def run_bot(websocket_client):
             user_transcripts,
             user_aggregator,
             langchain_processor,
+            bot_transcripts,
             tts_switcher,
             transport.output(),
-            bot_broadcaster,
             assistant_aggregator,
         ]
     )

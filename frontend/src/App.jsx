@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useVoiceAgent } from './hooks/useVoiceAgent';
 import { AgentAudioVisualizerAura } from './components/agents-ui/agent-audio-visualizer-aura';
 import { AgentAudioVisualizerBar } from './components/agents-ui/agent-audio-visualizer-bar';
+import { Orb } from './components/ui/orb';
 import { AgentControlBar } from './components/agents-ui/agent-control-bar';
 import { AgentChatTranscript } from './components/agents-ui/agent-chat-transcript';
 import { DocumentUploadModal } from './components/agents-ui/document-upload-modal';
@@ -16,10 +17,39 @@ const STATUS_TEXT = {
   error: 'Connection error. Please try again.',
 };
 
+const ORB_COLOR_PRESETS = [
+  {
+    id: 'blue',
+    label: 'Sky Blue',
+    colors: ['#CADCFC', '#A0B9D1'],
+    accent: '#A0B9D1',
+  },
+  {
+    id: 'sand',
+    label: 'Warm Sand',
+    colors: ['#EAD2B8', '#D1AB84'],
+    accent: '#D1AB84',
+  },
+  {
+    id: 'silver',
+    label: 'Silver Gray',
+    colors: ['#E2E8F0', '#94A3B8'],
+    accent: '#94A3B8',
+  },
+  {
+    id: 'cyan',
+    label: 'Cyber Cyan',
+    colors: ['#22d3ee', '#818cf8'],
+    accent: '#22d3ee',
+  },
+];
+
 export function App() {
   const {
     orbState,
     volume,
+    inputVolume,
+    outputVolume,
     isMuted,
     messages,
     errorMessage,
@@ -30,10 +60,14 @@ export function App() {
     clearMessages,
   } = useVoiceAgent();
 
-  const [visualizer, setVisualizer] = useState('livekit-aura');
+  const [visualizer, setVisualizer] = useState('three-orb');
+  const [themeId, setThemeId] = useState('blue');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isDocsOpen, setIsDocsOpen] = useState(false);
   const [docCount, setDocCount] = useState(0);
+
+  const currentTheme =
+    ORB_COLOR_PRESETS.find((t) => t.id === themeId) || ORB_COLOR_PRESETS[0];
 
   return (
     <div className="w-full h-[100dvh] bg-[#07080a] text-neutral-100 flex flex-col justify-between font-sans select-none overflow-hidden">
@@ -50,6 +84,25 @@ export function App() {
 
         {/* Header Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Color Preset Palette Picker */}
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/5 border border-white/10">
+            {ORB_COLOR_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                onClick={() => setThemeId(preset.id)}
+                title={`Color theme: ${preset.label}`}
+                className={`w-5 h-5 rounded-full transition-all duration-150 relative cursor-pointer ${
+                  themeId === preset.id
+                    ? 'ring-2 ring-white ring-offset-2 ring-offset-[#0a0c0f] scale-110'
+                    : 'opacity-60 hover:opacity-100 hover:scale-105'
+                }`}
+                style={{
+                  background: `linear-gradient(135deg, ${preset.colors[0]}, ${preset.colors[1]})`,
+                }}
+              />
+            ))}
+          </div>
+
           {/* Document Knowledge Base Button */}
           <button
             onClick={() => setIsDocsOpen(true)}
@@ -68,6 +121,7 @@ export function App() {
           {/* Visualizer Switcher */}
           <div className="flex items-center gap-1 p-0.5 rounded-full bg-white/5 border border-white/10 text-xs">
             {[
+              { id: 'three-orb', label: '🔮 Orb' },
               { id: 'livekit-aura', label: '🌟 Aura' },
               { id: 'livekit-bar', label: '📊 Bar' },
             ].map((item) => (
@@ -119,12 +173,32 @@ export function App() {
 
           {/* Visualizer Hero Area */}
           <div className="flex-1 w-full flex flex-col items-center justify-center min-h-0 my-auto">
-            {visualizer === 'livekit-aura' ? (
+            {visualizer === 'three-orb' ? (
+              <div className="w-64 h-64 sm:w-80 sm:h-80 flex items-center justify-center relative">
+                <Orb
+                  agentState={
+                    orbState === 'speaking'
+                      ? 'talking'
+                      : orbState === 'listening'
+                      ? 'listening'
+                      : orbState === 'thinking'
+                      ? 'thinking'
+                      : null
+                  }
+                  volumeMode="manual"
+                  manualInput={inputVolume}
+                  manualOutput={outputVolume}
+                  colors={currentTheme.colors}
+                  className="w-full h-full"
+                />
+              </div>
+            ) : visualizer === 'livekit-aura' ? (
               <div className="w-48 h-48 sm:w-64 sm:h-64 flex items-center justify-center">
                 <AgentAudioVisualizerAura
                   state={orbState}
                   volume={volume}
                   size="xl"
+                  color={currentTheme.colors[0]}
                   theme="aura"
                 />
               </div>
@@ -135,7 +209,7 @@ export function App() {
                   volume={volume}
                   barCount={7}
                   size="lg"
-                  color="#E2E8F0"
+                  color={currentTheme.colors[0]}
                 />
               </div>
             )}
