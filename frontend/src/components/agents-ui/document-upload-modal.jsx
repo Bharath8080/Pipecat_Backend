@@ -169,7 +169,7 @@ export function DocumentUploadModal({ isOpen, onClose, onDocumentsChange }) {
                 Click or drag & drop a <span className="text-cyan-400">.PDF document</span> here
               </p>
               <p className="text-[10px] text-neutral-500 font-mono">
-                Indexed in ChromaDB with LangChain & BAAI/bge-base-en-v1.5
+                Indexed in Qdrant (Hybrid BM25 + BGE) with LangChain
               </p>
             </div>
           )}
