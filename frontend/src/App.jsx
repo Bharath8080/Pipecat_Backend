@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { useVoiceAgent } from './hooks/useVoiceAgent';
-import { AgentAudioVisualizerAura } from './components/agents-ui/agent-audio-visualizer-aura';
-import { AgentAudioVisualizerBar } from './components/agents-ui/agent-audio-visualizer-bar';
 import { Orb } from './components/ui/orb';
 import { AgentControlBar } from './components/agents-ui/agent-control-bar';
 import { AgentChatTranscript } from './components/agents-ui/agent-chat-transcript';
@@ -60,7 +58,6 @@ export function App() {
     clearMessages,
   } = useVoiceAgent();
 
-  const [visualizer, setVisualizer] = useState('three-orb');
   const [themeId, setThemeId] = useState('blue');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isDocsOpen, setIsDocsOpen] = useState(false);
@@ -117,27 +114,6 @@ export function App() {
               </span>
             )}
           </button>
-
-          {/* Visualizer Switcher */}
-          <div className="flex items-center gap-1 p-0.5 rounded-full bg-white/5 border border-white/10 text-xs">
-            {[
-              { id: 'three-orb', label: '🔮 Orb' },
-              { id: 'livekit-aura', label: '🌟 Aura' },
-              { id: 'livekit-bar', label: '📊 Bar' },
-            ].map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setVisualizer(item.id)}
-                className={`px-3 py-1 rounded-full text-[11px] transition-all cursor-pointer ${
-                  visualizer === item.id
-                    ? 'bg-white/20 text-white font-medium shadow-sm'
-                    : 'text-neutral-500 hover:text-neutral-300'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
         </div>
       </header>
 
@@ -171,48 +147,26 @@ export function App() {
             </span>
           </div>
 
-          {/* Visualizer Hero Area */}
+          {/* Visualizer Hero Area (Dedicated 3D Orb) */}
           <div className="flex-1 w-full flex flex-col items-center justify-center min-h-0 my-auto">
-            {visualizer === 'three-orb' ? (
-              <div className="w-64 h-64 sm:w-80 sm:h-80 flex items-center justify-center relative">
-                <Orb
-                  agentState={
-                    orbState === 'speaking'
-                      ? 'talking'
-                      : orbState === 'listening'
-                      ? 'listening'
-                      : orbState === 'thinking'
-                      ? 'thinking'
-                      : null
-                  }
-                  volumeMode="manual"
-                  manualInput={inputVolume}
-                  manualOutput={outputVolume}
-                  colors={currentTheme.colors}
-                  className="w-full h-full"
-                />
-              </div>
-            ) : visualizer === 'livekit-aura' ? (
-              <div className="w-48 h-48 sm:w-64 sm:h-64 flex items-center justify-center">
-                <AgentAudioVisualizerAura
-                  state={orbState}
-                  volume={volume}
-                  size="xl"
-                  color={currentTheme.colors[0]}
-                  theme="aura"
-                />
-              </div>
-            ) : (
-              <div className="w-full max-w-[320px] h-36 sm:h-44 flex items-center justify-center">
-                <AgentAudioVisualizerBar
-                  state={orbState}
-                  volume={volume}
-                  barCount={7}
-                  size="lg"
-                  color={currentTheme.colors[0]}
-                />
-              </div>
-            )}
+            <div className="w-64 h-64 sm:w-80 sm:h-80 flex items-center justify-center relative">
+              <Orb
+                agentState={
+                  orbState === 'speaking'
+                    ? 'talking'
+                    : orbState === 'listening'
+                    ? 'listening'
+                    : orbState === 'thinking'
+                    ? 'thinking'
+                    : null
+                }
+                volumeMode="manual"
+                manualInput={inputVolume}
+                manualOutput={outputVolume}
+                colors={currentTheme.colors}
+                className="w-full h-full"
+              />
+            </div>
 
             {/* Subtitle status */}
             <p className="mt-4 text-xs font-mono text-neutral-400 tracking-wide text-center">
