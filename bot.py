@@ -130,7 +130,7 @@ async def run_bot(websocket_client):
             turn_analyzer=LocalSmartTurnAnalyzerV3(),
             serializer=FastAPIRealtimeSerializer(),
             audio_in_sample_rate=16000,
-            audio_out_sample_rate=16000,
+            audio_out_sample_rate=24000,
         ),
     )
 
@@ -209,14 +209,14 @@ async def run_bot(websocket_client):
     # 3. TTS with 3-Tier Failover (1st: Deepgram, 2nd: ElevenLabs, 3rd: Cartesia)
     deepgram_tts = DeepgramFluxTTSService(
         api_key=config.DEEPGRAM_API_KEY,
-        sample_rate=16000,
+        sample_rate=24000,
         text_aggregation_mode=TextAggregationMode.TOKEN,
         settings=DeepgramFluxTTSService.Settings(voice=config.DEEPGRAM_VOICE),
     )
 
     elevenlabs_tts = ElevenLabsTTSService(
         api_key=config.ELEVENLABS_API_KEY,
-        sample_rate=16000,
+        sample_rate=24000,
         settings=ElevenLabsTTSService.Settings(
             voice=config.ELEVENLABS_VOICE_ID,
             model=config.ELEVENLABS_MODEL_ID,
@@ -225,7 +225,7 @@ async def run_bot(websocket_client):
 
     cartesia_tts = CartesiaTTSService(
         api_key=config.CARTESIA_API_KEY,
-        sample_rate=16000,
+        sample_rate=24000,
         settings=CartesiaTTSService.Settings(
             voice=config.DEFAULT_VOICE_ID,
             model=config.CARTESIA_MODEL_ID,
@@ -265,6 +265,8 @@ async def run_bot(websocket_client):
         pipeline,
         params=PipelineParams(
             allow_interruptions=True,
+            audio_in_sample_rate=16000,
+            audio_out_sample_rate=24000,
             enable_metrics=True,
             enable_usage_metrics=True,
         ),

@@ -220,7 +220,7 @@ export function useVoiceAgent(wsUrl = DEFAULT_WS_URL) {
             float32Array[i] = int16Array[i] / 32768.0;
           }
 
-          const audioBuffer = ctx.createBuffer(1, float32Array.length, 16000);
+          const audioBuffer = ctx.createBuffer(1, float32Array.length, 24000);
           audioBuffer.getChannelData(0).set(float32Array);
 
           const bufferSource = ctx.createBufferSource();
