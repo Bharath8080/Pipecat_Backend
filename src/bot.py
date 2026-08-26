@@ -47,8 +47,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_groq import ChatGroq
 
-import config
-import rag_engine
+from src import config, rag_engine
 
 logger.remove()
 logger.add(
@@ -83,6 +82,26 @@ class FastAPIRealtimeSerializer(FrameSerializer):
         return None
 
 
+from pydantic import BaseModel
+from typing import Literal
+
+
+class UserTranscriptPayload(BaseModel):
+    type: Literal["user_transcript"] = "user_transcript"
+    text: str
+    final: bool
+
+
+class BotTranscriptPayload(BaseModel):
+    type: Literal["bot_transcript"] = "bot_transcript"
+    text: str
+
+
+class BotStatePayload(BaseModel):
+    type: Literal["bot_state"] = "bot_state"
+    state: str
+
+
 class TranscriptBroadcaster(FrameProcessor):
     """Transmits live user STT, bot streaming text, and state synchronization directly to the UI."""
 
@@ -95,26 +114,26 @@ class TranscriptBroadcaster(FrameProcessor):
 
         if isinstance(frame, InterimTranscriptionFrame):
             if frame.text and frame.text.strip():
-                await self._send({"type": "user_transcript", "text": frame.text.strip(), "final": False})
+                await self._send(UserTranscriptPayload(text=frame.text.strip(), final=False))
         elif isinstance(frame, TranscriptionFrame):
             if frame.text and frame.text.strip():
-                await self._send({"type": "user_transcript", "text": frame.text.strip(), "final": True})
-                await self._send({"type": "bot_state", "state": "thinking"})
+                await self._send(UserTranscriptPayload(text=frame.text.strip(), final=True))
+                await self._send(BotStatePayload(state="thinking"))
         elif isinstance(frame, TextFrame):
             if frame.text:
-                await self._send({"type": "bot_transcript", "text": frame.text})
+                await self._send(BotTranscriptPayload(text=frame.text))
         elif isinstance(frame, BotStartedSpeakingFrame):
-            await self._send({"type": "bot_state", "state": "speaking"})
+            await self._send(BotStatePayload(state="speaking"))
         elif isinstance(frame, BotStoppedSpeakingFrame):
-            await self._send({"type": "bot_state", "state": "listening"})
+            await self._send(BotStatePayload(state="listening"))
         elif isinstance(frame, UserStartedSpeakingFrame):
-            await self._send({"type": "bot_state", "state": "listening"})
+            await self._send(BotStatePayload(state="listening"))
 
         await self.push_frame(frame, direction)
 
-    async def _send(self, payload: dict):
+    async def _send(self, payload: BaseModel):
         try:
-            await self._ws.send_text(json.dumps(payload))
+            await self._ws.send_text(payload.model_dump_json())
         except Exception:
             pass
 
@@ -206,14 +225,7 @@ async def run_bot(websocket_client):
 
     langchain_processor = LangchainProcessor(chain=rag_chain)
 
-    # 3. TTS with 3-Tier Failover (1st: Deepgram, 2nd: ElevenLabs, 3rd: Cartesia)
-    deepgram_tts = DeepgramFluxTTSService(
-        api_key=config.DEEPGRAM_API_KEY,
-        sample_rate=24000,
-        text_aggregation_mode=TextAggregationMode.TOKEN,
-        settings=DeepgramFluxTTSService.Settings(voice=config.DEEPGRAM_VOICE),
-    )
-
+    # 3. TTS with Failover (1st: ElevenLabs, 2nd: Deepgram Fallback, 3rd: Cartesia)
     elevenlabs_tts = ElevenLabsTTSService(
         api_key=config.ELEVENLABS_API_KEY,
         sample_rate=24000,
@@ -221,6 +233,13 @@ async def run_bot(websocket_client):
             voice=config.ELEVENLABS_VOICE_ID,
             model=config.ELEVENLABS_MODEL_ID,
         ),
+    )
+
+    deepgram_tts = DeepgramFluxTTSService(
+        api_key=config.DEEPGRAM_API_KEY,
+        sample_rate=24000,
+        text_aggregation_mode=TextAggregationMode.TOKEN,
+        settings=DeepgramFluxTTSService.Settings(voice=config.DEEPGRAM_VOICE),
     )
 
     cartesia_tts = CartesiaTTSService(
@@ -233,7 +252,7 @@ async def run_bot(websocket_client):
     )
 
     tts_switcher = ServiceSwitcher(
-        services=[deepgram_tts, elevenlabs_tts, cartesia_tts],
+        services=[elevenlabs_tts, deepgram_tts, cartesia_tts],
         strategy_type=ServiceSwitcherStrategyFailover,
     )
 

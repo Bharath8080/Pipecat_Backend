@@ -1,6 +1,5 @@
 from langchain_groq import ChatGroq
-import rag_engine
-import config
+from src import rag_engine, config
 
 llm = ChatGroq(
     model=config.GROQ_MODEL,

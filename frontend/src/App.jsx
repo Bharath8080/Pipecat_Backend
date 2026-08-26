@@ -4,8 +4,6 @@ import { Orb } from './components/ui/orb';
 import { ShimmeringText } from './components/ui/shimmering-text';
 import { AgentControlBar } from './components/agents-ui/agent-control-bar';
 import { AgentChatTranscript } from './components/agents-ui/agent-chat-transcript';
-import { DocumentUploadModal } from './components/agents-ui/document-upload-modal';
-import { FileText } from 'lucide-react';
 
 const STATUS_CONFIG = {
   idle: {
@@ -91,8 +89,6 @@ export function App() {
 
   const [themeId, setThemeId] = useState('blue');
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isDocsOpen, setIsDocsOpen] = useState(false);
-  const [docCount, setDocCount] = useState(0);
 
   const currentTheme =
     ORB_COLOR_PRESETS.find((t) => t.id === themeId) || ORB_COLOR_PRESETS[0];
@@ -130,21 +126,6 @@ export function App() {
               />
             ))}
           </div>
-
-          {/* Document Knowledge Base Button */}
-          <button
-            onClick={() => setIsDocsOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-neutral-200 text-xs font-outfit font-semibold transition-all cursor-pointer"
-            title="Manage RAG Knowledge Base Documents"
-          >
-            <FileText className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="font-semibold">Documents</span>
-            {docCount > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800 text-[10px] font-mono">
-                {docCount}
-              </span>
-            )}
-          </button>
         </div>
       </header>
 
@@ -246,13 +227,6 @@ export function App() {
           </div>
         )}
       </main>
-
-      {/* RAG Knowledge Base Document Upload Modal */}
-      <DocumentUploadModal
-        isOpen={isDocsOpen}
-        onClose={() => setIsDocsOpen(false)}
-        onDocumentsChange={(docs) => setDocCount(docs.length)}
-      />
     </div>
   );
 }
