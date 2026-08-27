@@ -13,8 +13,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CHROMA_PATH = os.path.join(BASE_DIR, "chroma_db")
 COLLECTION_NAME = "rag_docs"
 
-CHUNK_SIZE = 600
-CHUNK_OVERLAP = 100
+CHUNK_SIZE = 800
+CHUNK_OVERLAP = 200
+
+
+DEFAULT_PDF_PATH = os.path.join(BASE_DIR, "data", "guide.pdf")
 
 
 class IngestResult(BaseModel):
@@ -37,8 +40,11 @@ _text_splitter = RecursiveCharacterTextSplitter(
 )
 
 
-def ingest_pdf(file_path: str, filename: str) -> IngestResult:
-    logger.info(f"Loading PDF: {filename}...")
+def ingest_pdf(file_path: str = DEFAULT_PDF_PATH, filename: str = "guide.pdf") -> IngestResult:
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"PDF file not found at: {file_path}")
+
+    logger.info(f"Loading PDF: {filename} from {file_path}...")
     loader = PyPDFLoader(file_path)
     pages = loader.load()
     logger.info(f"  {len(pages)} pages loaded.")
@@ -70,3 +76,10 @@ def retrieve_context(query: str, top_k: int = 3) -> str:
     except Exception as e:
         logger.error(f"ChromaDB retrieval error: {e}")
         return "No relevant information found."
+
+
+if __name__ == "__main__":
+    res = ingest_pdf()
+    print(f"Successfully ingested {res.chunks} chunks from {res.filename} into ChromaDB!")
+    sample = retrieve_context("What are the visiting hours for ICU and General Wards?")
+    print(f"\n[Verification Query - Visiting Hours]:\n{sample}")
